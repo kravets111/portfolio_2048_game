@@ -24,10 +24,13 @@ class Game {
     this.board = initialState;
     this.status = 'idle';
     this.score = 0;
+    this.lastMoveMap = [];
   }
 
   moveLeft() {
     let moved = false;
+
+    this.lastMoveMap = [];
 
     for (let row = 0; row < 4; row++) {
       const currentRow = this.board[row];
@@ -40,11 +43,9 @@ class Game {
       }
     }
 
-    if (moved) {
-      this.addRandomTile();
-    }
-
     this.updateStatus();
+
+    return moved;
   }
 
   moveRight() {
@@ -60,12 +61,11 @@ class Game {
     }
 
     const newState = JSON.stringify(this.board);
-
-    if (newState !== prevState) {
-      this.addRandomTile();
-    }
+    const moved = newState !== prevState;
 
     this.updateStatus();
+
+    return moved;
   }
 
   moveUp() {
@@ -89,12 +89,11 @@ class Game {
     }
 
     const newState = JSON.stringify(this.board);
-
-    if (newState !== prevState) {
-      this.addRandomTile();
-    }
+    const moved = newState !== prevState;
 
     this.updateStatus();
+
+    return moved;
   }
 
   moveDown() {
@@ -118,12 +117,11 @@ class Game {
     }
 
     const newState = JSON.stringify(this.board);
-
-    if (newState !== prevState) {
-      this.addRandomTile();
-    }
+    const moved = newState !== prevState;
 
     this.updateStatus();
+
+    return moved;
   }
 
   /**
@@ -182,7 +180,9 @@ class Game {
     for (let row = 0; row < 4; row++) {
       for (let col = 0; col < 4; col++) {
         if (this.board[row][col] === 0) {
-          cells.push({ row, col });
+          cells.push({
+            row, col,
+          });
         }
       }
     }
@@ -196,8 +196,19 @@ class Game {
   }
 
   compressRow(row) {
-    let filtered = row.filter((num) => num !== 0);
+    const moveMap = [];
+    const originalPosition = {};
+
+    const filtered = row.filter((num) => num !== 0);
     let score = 0;
+    let filterIndex = 0;
+
+    row.forEach((value, index) => {
+      if (index !== 0) {
+        originalPosition[filterIndex] = index;
+        filterIndex++;
+      }
+    });
 
     for (let i = 0; i < filtered.length - 1; i++) {
       if (filtered[i] === filtered[i + 1]) {
@@ -208,7 +219,17 @@ class Game {
       }
     }
 
-    filtered = filtered.filter((num) => num !== 0);
+    const finalRow = filtered.filter((num) => num !== 0);
+
+    finalRow.forEach((value, newIndex) => {
+      const originalIndex = originalPosition[newIndex] || newIndex;
+
+      if (originalIndex !== newIndex) {
+        moveMap.push({
+          from: originalIndex, to: newIndex,
+        });
+      }
+    });
 
     const zerosToAdd = 4 - filtered.length;
 
@@ -216,7 +237,9 @@ class Game {
       filtered.push(0);
     }
 
-    return { newRow: filtered, gainedScore: score };
+    return {
+      newRow: filtered, gainedScore: score, moveMap,
+    };
   }
 
   areRowEqual(row1, row2) {
@@ -245,8 +268,8 @@ class Game {
         const current = this.board[row][col];
 
         if (
-          (col < 3 && current === this.board[row][col + 1]) ||
-          (row < 3 && current === this.board[row + 1][col])
+          (col < 3 && current === this.board[row][col + 1])
+          || (row < 3 && current === this.board[row + 1][col])
         ) {
           this.status = 'playing';
 
